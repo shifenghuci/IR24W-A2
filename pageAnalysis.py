@@ -5,7 +5,7 @@ from tokenizer import yieldToken,printFrequencies
 from urllib.parse import urlparse, urlunparse
 from domainCheck import is_url_allowed
 
-# return a generator that yield all valid hyperlink(has correct scheme and not a fragment) found from the soup_obj
+# Given a response object, return a generator that yield all valid hyperlink(has correct scheme and not a fragment) found from the soup_obj
 def extract_hrefs(resp:Response):
   soup = BeautifulSoup(resp.text,'html.parser')
   for tag in soup.find_all('a'):

@@ -12,7 +12,7 @@ def is_url_allowed(url) -> True | False:
   print(url)
   parsed = urlparse(url)
   domain = parsed.netloc
-  domain.replace("www.", "") if not domain else None#strip www if domain is not empty
+  domain.replace("www.", "") if not domain else None # strip www if domain is not empty
   return domain in allowed_domain
   
   

@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 from requests import Response
-from tokenizer import yieldToken,printFrequencies
+from tokenizer import yieldToken, printFrequencies
 from urllib.parse import urlparse, urlunparse
 from domainCheck import is_url_allowed
 
@@ -21,6 +21,7 @@ def update_word_frequencies(resp: Response, freq_dict)-> None:
   tokens = list(yieldToken(soup.get_text()))
   for token in tokens:
         freq_dict[token] = freq_dict.get(token, 0) + 1 # if new to dict, assign 1, if not, increment
+
 
 
 # test case

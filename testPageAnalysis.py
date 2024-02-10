@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import requests
 from requests import Response
 from tokenizer import yieldToken,printFrequencies
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from domainCheck import is_url_allowed
 
 # return a generator that yield all valid hyperlink(has correct scheme and not a fragment) found from the soup_obj
@@ -12,7 +12,8 @@ def extract_hrefs(resp:Response):
     href = tag.get('href')
     # yield links that has valid schemes and within the allowed domain
     if urlparse(href).scheme in ['http', 'https'] and is_url_allowed(href, allowed_domain):
-      yield(href)
+      clean_url = urlunparse(urlparse(href)._replace(fragment= "")) #remove the fragment part
+      yield(clean_url)
 
 #Given a soup object adn a dictionary about word frequencies, update the word frequencies by word token found in the soup
 def update_word_frequencies(resp: Response, freq_dict)-> None:
@@ -39,4 +40,4 @@ for resp in downloaded_resps:
     print(link)
 
 print(f'Visited url: {seed_urls.split(",")}')
-print(word_frequency)
+printFrequencies(word_frequency)

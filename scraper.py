@@ -6,9 +6,12 @@ from tokenizer import yieldToken
 
 word_freq = dict()
 allowed_domain = {".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"}
+visited_domains = {}
 
 def scraper(url, resp):
     global word_freq
+    if (resp.status > 399):
+        return []
     links = list(extract_next_links(url, resp))
     update_word_frequencies(resp,word_freq)
     # print(f"List of hyperlinks extracted from {url}:{links}")
@@ -22,51 +25,26 @@ def convert_to_absolute(url:str, href:str) -> str:
     if href[0:2] == "//":
         #if url missing scheme
         return parsed_url.scheme + ":" + href
-    elif href[0] == "/":
+    elif href[0] == "/": # currently handles the case of ics.uci.edu/community + /community. Doesn't handle case of ics.uci.edu/community/about + /community + /about
         # if relative url
         return url + href
-    elif href[0] == "#":
+    elif href[0] == "#": # fragment piece, return the current url
         return url
     else:
         # if absolute url
         return href
 
-#no validation will be performed here, all validation perform in is_valid
+# Given a url and its resp, this function return a list of either Empty or aboslute url
 def extract_next_links(url, resp):
     print(f'{url} has staus code {resp.status} of type {type(resp.status)}')
     soup = BeautifulSoup(resp.raw_response.content,'html.parser')
     for tag in soup.find_all('a'):
-        href = tag.get('href')
-        
-        if not href:
+        hyperlink = tag.get('href')
+        if hyperlink[-1] == "/": hyperlink = hyperlink[:-1] # remove url that has an empty redirection to itself
+        if not hyperlink:
             # if empty link, skip
             continue
-        elif resp.status > 299:
-            #print(f'{url} has unsuccessful visit')
-            # if unsuccessful request, skip
-            continue
-        elif href[:-1] == url[(len(url)-len(href))+1:]:
-            #if repeating
-            continue
-        # Convert relative to absolute
-        print(f"here is the href {href[:-1]}")
-        print(f"here is the url[len] {url[(len(url)-len(href))+1:]}")
-        yield(convert_to_absolute(url,href))
-
-
-        """ # yield links that has valid schemes and within the allowed domain, and exclude fragment link
-        if urlparse(href).scheme in ['http', 'https'] and is_url_allowed(href, allowed_domain):
-            clean_url = urlunparse(urlparse(href)._replace(fragment= "")) #remove the fragment part
-            yield(clean_url) """
-
-
-    # legacy code that assume relative url 
-    """ soup = BeautifulSoup(url, 'html.parser')
-    links = []
-    for element in soup.find_all('a'):
-        links.append(convert_to_absolute(url, element['href']))
-    global counter++
-    return links """
+        yield(convert_to_absolute(url,hyperlink))
 
 def is_valid(url):
     try:
@@ -94,6 +72,9 @@ def is_valid(url):
         if not url:
             print(f"Rejected {url} due to empty hyperlink")
             return False
+        if is_repeated_url(url):
+            print(f"Rejected {url} due to repeated pattern")
+            return False
         else:
             return True
     except TypeError:
@@ -114,3 +95,19 @@ def update_word_frequencies(resp, freq_dict)-> None:
   tokens = list(yieldToken(soup.get_text()))
   for token in tokens:
         freq_dict[token] = freq_dict.get(token, 0) + 1 # if new to dict, assign 1, if not, increment
+
+
+def is_repeated_url(url):
+    # determined if the url contain repeated pattern that is potentially a trap for the crawler
+    parsed =urlparse(url)
+    path_tokens = parsed.path.split("/")
+    return len(set(path_tokens)) == len(path_tokens)
+
+
+if __name__ == "__main__":
+    repeated_url = "https://ics.uci.edu/community/about/community/about"
+    valid_url = "https://ics.uci.edu/community/privacy/our_mission"
+    print(f'{repeated_url} is {is_repeated_url(repeated_url)}')
+    print(f'{valid_url} is {is_repeated_url(valid_url)}')
+
+    

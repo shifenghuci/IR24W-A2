@@ -17,7 +17,7 @@ def scraper(url, resp):
     return accepted_link
 
 #takes in urls, if it is relative convert to absolute url
-def convert_to_absolute(url, href) -> str:
+def convert_to_absolute(url:str, href:str) -> str:
     parsed_url = urlparse(url)
     if href[0:2] == "//":
         #if url missing scheme
@@ -33,10 +33,24 @@ def convert_to_absolute(url, href) -> str:
 
 #no validation will be performed here, all validation perform in is_valid
 def extract_next_links(url, resp):
+    print(f'{url} has staus code {resp.status} of type {type(resp.status)}')
     soup = BeautifulSoup(resp.raw_response.content,'html.parser')
     for tag in soup.find_all('a'):
         href = tag.get('href')
+        
+        if not href:
+            # if empty link, skip
+            continue
+        elif resp.status > 299:
+            #print(f'{url} has unsuccessful visit')
+            # if unsuccessful request, skip
+            continue
+        elif href[:-1] == url[(len(url)-len(href))+1:]:
+            #if repeating
+            continue
         # Convert relative to absolute
+        print(f"here is the href {href[:-1]}")
+        print(f"here is the url[len] {url[(len(url)-len(href))+1:]}")
         yield(convert_to_absolute(url,href))
 
 
@@ -59,7 +73,7 @@ def is_valid(url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             # if it is not a valid scheme
-            print(f"Rejected {url} due to scheme error")
+            #print(f"Rejected {url} due to scheme error")
             return False
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
@@ -71,11 +85,14 @@ def is_valid(url):
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             # if is document
-            print(f'Rejected {url} due to document error')
+            #print(f'Rejected {url} due to document error')
             return False
         if not is_url_allowed(url, allowed_domain):
             # if out of domain
-            print(f"Rejected {url} due to out of domain error")
+            #print(f"Rejected {url} due to out of domain error")
+            return False
+        if not url:
+            print(f"Rejected {url} due to empty hyperlink")
             return False
         else:
             return True

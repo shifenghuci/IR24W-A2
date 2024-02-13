@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urlparse
+from tokenizer import yieldToken
 def get_hrefs(resp):
     #return all hyperlink found from the url
     soup = BeautifulSoup(resp.text, 'html.parser')
@@ -20,7 +21,18 @@ def exceedRepeatedThreshold(url)-> True|False:
 
 url = "https://www.cs.uci.edu/sangeetha-abdu-jyothi-named-a-rising-star-in-networking-and-communications/#more-3900/event/2017-computer-science-research-showcase/event/2017-computer-science-research-showcase/event/2017-computer-science-research-showcase/event/2017-computer-science-research-showcase"
 
-print(urlparse(url).path)
-print(urlparse(url).fragment)
-print(exceedRepeatedThreshold(url))
+
+
+u = "https://www.ics.uci.edu/~saeed/index.html/community/alumni/grad/forms_policies/index/accessibility-statement/academics/course-updates/research-areas"
+
+page = requests.get(u)
+soup = BeautifulSoup(page.text)
+tokens = list(yieldToken(soup.get_text()))
+print(tokens)
+
+
+
+#print(urlparse(url).path)
+#print(urlparse(url).fragment)
+#print(exceedRepeatedThreshold(url))
 

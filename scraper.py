@@ -1,14 +1,56 @@
 import re
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+from tokenizer import yieldToken
+import shelve
+import pickle
 
 def scraper(url, resp):
     if resp.status == 200: #only scraped success page
+        collect_data(url,resp)
         links = extract_next_links(url, resp)
     else:
         links = [] # return empty links for not successful visit page
     #return []
     return [link for link in links if is_valid(link)]
+
+def collect_data(url,resp)->None:
+    # collect data on the url and store it in shelve
+    '''
+    Collect the following info from each url:
+    1. Number of word/token
+    2. word frequencies
+    '''
+    #update set of scraped urls
+    try:
+        with open('scraped_urls', 'rb') as f:
+            scraped_urls = pickle.load(f)
+    except FileNotFoundError:
+        scraped_urls = set()
+    scraped_urls.add(url)
+    with open('scraped_urls','wb') as f:
+        pickle.dump(scraped_urls,f)
+
+
+    soup = BeautifulSoup(resp.raw_response.content,'html.parser')
+    tokens = list(yieldToken(soup.get_text()))
+    num_words = len(tokens)
+
+    #update longest_page
+    try:
+        with open('longest_page', 'rb') as f:
+            longest_page = pickle.load(f)
+    except FileNotFoundError:
+        longest_page = (None, 0)
+    if num_words > longest_page[1]:
+        longest_page = (url, num_words)
+    with open('longest_page','wb') as f:
+        pickle.dump(longest_page,f)
+
+
+    with shelve.open('url_stat') as url_dict:
+        for token in tokens:
+            url_dict[token] = url_dict.get(token, 0) + 1
 
 def get_hrefs(resp):
     #return all hyperlink found from the url

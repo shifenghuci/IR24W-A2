@@ -108,3 +108,8 @@ venv.bak/
 
 *.full.py
 *.shelve
+
+#customizedstatisical report
+word_freq
+scraped_urls
+longest_page

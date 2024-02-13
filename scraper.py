@@ -14,6 +14,10 @@ def scraper(url, resp):
     #return []
     return [link for link in links if is_valid(link)]
 
+def get_tokenSet(url:str):
+  #return a set of all token in the url
+  return frozenset({x for x in url.split('/')})
+
 def collect_data(url,resp)->None:
     # collect data on the url and store it in shelve
     '''
@@ -21,36 +25,25 @@ def collect_data(url,resp)->None:
     1. Number of word/token
     2. word frequencies
     '''
-    #update set of scraped urls
-    try:
-        with open('scraped_urls', 'rb') as f:
-            scraped_urls = pickle.load(f)
-    except FileNotFoundError:
-        scraped_urls = set()
-    scraped_urls.add(url)
-    with open('scraped_urls','wb') as f:
-        pickle.dump(scraped_urls,f)
-
+    #update dict of scraped_urls
+    with shelve.open('scraped_urls') as d:
+        d[url] = get_tokenSet(url)
 
     soup = BeautifulSoup(resp.raw_response.content,'html.parser')
     tokens = list(yieldToken(soup.get_text()))
     num_words = len(tokens)
-
+    with open('longest_page', 'rb') as f:
+        longest_page = pickle.load(f)
     #update longest_page
-    try:
-        with open('longest_page', 'rb') as f:
-            longest_page = pickle.load(f)
-    except FileNotFoundError:
-        longest_page = (None, 0)
     if num_words > longest_page[1]:
         longest_page = (url, num_words)
     with open('longest_page','wb') as f:
         pickle.dump(longest_page,f)
 
 
-    with shelve.open('url_stat') as url_dict:
+    with shelve.open('word_freq') as word_freq:
         for token in tokens:
-            url_dict[token] = url_dict.get(token, 0) + 1
+            word_freq[token] = word_freq.get(token, 0) + 1
 
 def get_hrefs(resp):
     #return all hyperlink found from the url
@@ -101,11 +94,18 @@ def exceedRepeatedThreshold(url)-> True|False:
     '''
     repeat_THRESHOLD = 1 #if the same token appear more than three time in the path, the url is consider a trap that has infinite pattern
     d = {}
-    tokens = url.split('/')
-    for x in tokens:
+    tokenSet = get_tokenSet(url)
+    for x in tokenSet:
         if x != '':
             d[x] = d.get(x,0) + 1 #record frequency of token
-    return any(value > repeat_THRESHOLD for value in d.values())
+
+    #check the record of all seemd tokenSets
+    with shelve.open('scraped_urls') as url_dict:
+        tokenSets = set(url_dict.values())
+        seemedToken = get_tokenSet(url) in tokenSets
+        #print(tokenSets)
+        #print(f'{url} seemed? {seemedToken}')
+        return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken
 
 def is_valid(url):
     #return True or False that determine whether to crawl

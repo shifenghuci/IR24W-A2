@@ -4,7 +4,8 @@ from argparse import ArgumentParser
 from utils.server_registration import get_cache_server
 from utils.config import Config
 from crawler import Crawler
-
+import shelve
+import pickle
 
 def main(config_file, restart):
     cparser = ConfigParser()
@@ -20,4 +21,14 @@ if __name__ == "__main__":
     parser.add_argument("--restart", action="store_true", default=False)
     parser.add_argument("--config_file", type=str, default="config.ini")
     args = parser.parse_args()
+    with shelve.open('scraped_urls') as urls:
+        print('RESETING record of scraped_urls')
+        urls = dict()
+    with shelve.open('word_freq') as word_freq:
+        print("RESETTING WORD FREQUENCY")
+        word_freq = dict()
+    with open('longest_page', 'wb') as t:
+        print("RESETTING LONGEST PAGE")
+        pickle.dump((None,0),t)
+
     main(args.config_file, args.restart)

@@ -64,10 +64,11 @@ def extract_next_links(url, resp):
     links = []
     hyperlinks = get_hrefs(resp)
     #print(hyperlinks)
-    for link in hyperlinks:
+    for link in set(hyperlinks):
         if not link:
             continue #skip None
         if link.startswith('http') or link.startswith('https'):
+            #is complete url
             links.append(link)
         if link.startswith('//'):
             #missing scheme
@@ -95,7 +96,7 @@ def exceedRepeatedThreshold(url)-> True|False:
     repeat_THRESHOLD = 1 #if the same token appear more than three time in the path, the url is consider a trap that has infinite pattern
     d = {}
     tokenSet = get_tokenSet(url)
-    for x in tokenSet:
+    for x in url.split('/'):
         if x != '':
             d[x] = d.get(x,0) + 1 #record frequency of token
 
@@ -106,6 +107,10 @@ def exceedRepeatedThreshold(url)-> True|False:
         #print(tokenSets)
         #print(f'{url} seemed? {seemedToken}')
         return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken
+
+def exceedPathDepth(url):
+    depth_THRESHOLD = 5
+    return len(urlparse(url).path.split('/')) > depth_THRESHOLD
 
 def is_valid(url):
     #return True or False that determine whether to crawl
@@ -130,6 +135,8 @@ def is_valid(url):
         elif '.php' in url or '.html' in url:
             return False
         elif parsed.query:
+            return False
+        elif exceedPathDepth(url):
             return False
         elif exceedRepeatedThreshold(url):
             #print(f'{url} will not be crawl due to <<<<<exceedRepeatedThreshold error>>>>>')

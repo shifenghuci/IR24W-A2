@@ -24,9 +24,10 @@ with shelve.open('stats/word_freq') as db:
   printFrequencies(dict(db))
 
 
-with shelve.open('stats/word_freq') as d:
-  longest_page = d[0]
-  print(f'The longest page is {longest_page[0]}, which has {longest_page[1]} tokens')
+with shelve.open('stats/longest_page') as longest_page:
+  url = longest_page['url']
+  num = longest_page['num']
+  print(f'The longest page is {url}, which has {num} tokens')
 
 
 

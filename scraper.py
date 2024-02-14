@@ -1,145 +1,62 @@
 import re
-from urllib.parse import urlparse
-from bs4 import BeautifulSoup
-from tokenizer import yieldToken
 import shelve
-import pickle
+import lxml.html
+from urllib.parse import urlparse
+from typing import Generator
+from utils.response import Response
+import requests
 
-def scraper(url, resp):
-    if resp.status == 200: #only scraped success page
-        collect_data(url,resp)
-        links = extract_next_links(url, resp)
-    else:
-        links = [] # return empty links for not successful visit page
-    #return []
+def get_words(resp: Response) -> list[str]:
+    # return words (as defined as sequence of alphanumeric string) from the resp
+    html_string = resp.raw_response.content
+    tree = lxml.html.fromstring(html_string)
+    pattern = r"\w+'?\w*"  # find any alphanumeric sequence, including apostrophe
+    text = tree.text_content()
+    return [word for word in re.findall(pattern, text)]
+
+
+def update_word_dict(resp: Response) -> None:
+    # update a shelves file about word frequencies
+    stop_words = {}
+    with open('stopWords.txt', 'r') as f:
+        stop_words = {word.strip() for word in f.readlines()}
+
+    with shelve.open('stats/word_dict') as word_dict:
+        for word in get_words(resp):
+            if word not in stop_words:
+                word_dict[word] = word_dict.get(word, 0) + 1
+
+
+def scraper(url: str, resp: Response) -> list[str]:
+    update_word_dict(resp)
+    links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def get_tokenSet(url:str):
-  #return a set of all token in the url
-  return frozenset({x for x in url.split('/')})
 
-def collect_data(url,resp)->None:
-    # collect data on the url and store it in shelve
-    '''
-    Collect the following info from each url:
-    1. Number of word/token
-    2. word frequencies
-    '''
-    #update dict of scraped_urls
-    with shelve.open('stats/scraped_urls') as d:
-        d[url] = get_tokenSet(url)
-
-    soup = BeautifulSoup(resp.raw_response.content,'html.parser')
-    tokens = list(yieldToken(soup.get_text()))
-    num_words = len(tokens)
-    with shelve.open('stats/longest_page') as longest_page:
-        #update longest_page
-        if num_words > longest_page['num']:
-            longest_page['url'] = url
-            longest_page['num'] = num_words
-
-
-    with shelve.open('stats/word_freq') as word_freq:
-        for token in tokens:
-            word_freq[token] = word_freq.get(token, 0) + 1
-
-def get_hrefs(resp):
-    #return all hyperlink found from the url
-    soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
-    return [tag.get('href') for tag in soup.find_all('a')]
-
-def extract_next_links(url, resp):
-    # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    '''
-    Expected cases & handle:
-        1.absolute url: append directly to links
-        2.relative url: convert to absolute and append to links
-        3.fragment: ignore, don't append
-        5.None: ignore, don't append
-        6.Non website scheme: ignore, don't append
-        7.url lacking scheme: apply scheme and append to links
-    '''
-    links = []
-    hyperlinks = get_hrefs(resp)
-    #print(hyperlinks)
-    for link in set(hyperlinks):
-        if not link:
-            continue #skip None
-        if link.startswith('http') or link.startswith('https'):
-            #is complete url
-            links.append(link)
-        if link.startswith('//'):
-            #missing scheme
-            links.append(f'{urlparse(url).scheme}:{link}') #Give it the same scheme as the original url
+def extract_next_links(url: str, resp: Response) -> Generator[str, None, None]:
+    # yield links extracted from the url, ensure that link yielded is absolute url
+    hrefs = lxml.html.fromstring(resp.raw_response.content).xpath("//a/@href")
+    for link in hrefs:
+        if link.rstrip("/") == url or link == url:
+            continue  # skip self reference
+        elif link.startswith('#'):
+            continue  # skip fragment
+        elif link.startswith('tel:') or link.startswith('mailto:'):
+            continue  # skip tel: or mailto:
+        elif link.startswith('//'):
+            yield f'https:{link}'  # attach scheme
         elif link.startswith('/'):
-            #is relative
-            if url[-1] == '/':
-                url = url[:-1] #normalize self-directing page, ie: http://www.ics.uci.edu/ -> http://www.ics.uci.edu
-            absolute_url = f'{url}{link}'
-            links.append(absolute_url)
+            yield f'{url.rstrip("/")}{link}'  # remove ending / to avoid wrong concatenation
         else:
-            # The fragment, mailto, tel got ignored
-            continue
-    return links
+            yield link
 
-def exceedRepeatedThreshold(url)-> True|False:
-    #return true indicating if the url's path contain repeated pattern that exceed a certain threshold
-    '''
-    Definition of threshold
-    THRESHOLD = 1 We don't allow there to be recurring path
-
-    THRESHOLD = 2 We allowed once recurrent, but more than that smell fishy
-    
-    '''
-    repeat_THRESHOLD = 1 #if the same token appear more than three time in the path, the url is consider a trap that has infinite pattern
-    d = {}
-    tokenSet = get_tokenSet(url)
-    for x in url.split('/'):
-        if x != '':
-            d[x] = d.get(x,0) + 1 #record frequency of token
-
-    #check the record of all seemd tokenSets
-    with shelve.open('stats/scraped_urls') as url_dict:
-        tokenSets = set(url_dict.values())
-        seemedToken = get_tokenSet(url) in tokenSets
-        #print(tokenSets)
-        #print(f'{url} seemed? {seemedToken}')
-        return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken
-
-def exceedPathDepth(url):
-    depth_THRESHOLD = 5
-    return len(urlparse(url).path.split('/')) > depth_THRESHOLD
-
-def is_valid(url):
-    #return True or False that determine whether to crawl
-    '''
-    Expected Cases & handle:
-    1. Illegal domain: if netloc not in one of the four allowed domain
-    2. Repeated Pattern: fetch path and determine if there are repeated path exceeding certain threshold
-    3. Document: use regular expression
-    4. .php script: ignore them
-    5. query: ignore them
-    
-    
-    '''
+def is_valid(url: str) -> True | False:
+    # return True for url we want to crawl, False for url we don't want to crawl
+    parsed = urlparse(url)
     try:
-        parsed = urlparse(url)
-        if parsed.scheme not in set(["http", "https"]):
-            #print(f'{url} will not be crawl due to <<<<<invalid scheme error>>>>>')
+        if parsed.scheme not in {'http', 'https'}:
             return False
-        elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}:
-            #print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
-            return False
-        elif '.php' in url or '.html' in url:
-            return False
-        elif parsed.query:
-            return False
-        elif exceedPathDepth(url):
-            return False
-        elif exceedRepeatedThreshold(url):
-            #print(f'{url} will not be crawl due to <<<<<exceedRepeatedThreshold error>>>>>')
-            return False
-        return not re.match(
+        elif re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
@@ -147,8 +64,13 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+            return False
 
     except TypeError:
-        print ("TypeError for ", parsed)
+        print("TypeError for ", parsed)
         raise
+
+
+if __name__ == '__main__':
+    print()

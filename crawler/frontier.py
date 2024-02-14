@@ -49,6 +49,7 @@ class Frontier(object):
 
     def get_tbd_url(self):
         try:
+            print(f'{len(self.to_be_downloaded)} pages to be downloaded, out of {len(self.save.values())} url discovered')
             return self.to_be_downloaded.pop()
         except IndexError:
             return None

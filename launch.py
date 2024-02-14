@@ -30,9 +30,10 @@ if __name__ == "__main__":
         with shelve.open('stats/word_freq') as word_freq:
             print("RESETTING WORD FREQUENCY")
             word_freq.clear()
-        with open('stats/longest_page', 'wb') as t:
+        with shelve.open('stats/longest_page') as longest_page:
             print("RESETTING LONGEST PAGE")
-            pickle.dump((None,0),t)
+            longest_page['url'] = None
+            longest_page['num'] = 0
     else:
         print(f'Resume crawling process')
 

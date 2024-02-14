@@ -32,13 +32,11 @@ def collect_data(url,resp)->None:
     soup = BeautifulSoup(resp.raw_response.content,'html.parser')
     tokens = list(yieldToken(soup.get_text()))
     num_words = len(tokens)
-    with open('stats/longest_page', 'rb') as f:
-        longest_page = pickle.load(f)
-    #update longest_page
-    if num_words > longest_page[1]:
-        longest_page = (url, num_words)
-    with open('stats/longest_page','wb') as f:
-        pickle.dump(longest_page,f)
+    with shelve.open('stats/longest_page') as longest_page:
+        #update longest_page
+        if num_words > longest_page['num']:
+            longest_page['url'] = url
+            longest_page['num'] = num_words
 
 
     with shelve.open('stats/word_freq') as word_freq:

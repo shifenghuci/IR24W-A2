@@ -1,5 +1,6 @@
 import shelve
 import pickle
+from urllib.parse import urlparse
 #report the 50 most common words and number of url crawled
 def printFrequencies(frequencies):
     counter = 0
@@ -10,19 +11,23 @@ def printFrequencies(frequencies):
            break
 
 with shelve.open('stats/scraped_urls') as d:
-   print(f'Number of url crawled: {len(d.keys())}')
+   domain = "www.ics.uci.edu"
+   urls = list(d.keys())
+   sub_domains = []
+   for url in urls:
+       if urlparse(url).netloc.endswith(domain):
+           sub_domains.append(url)
+   print(f'Number of url crawled: {len(urls)}')
 
 with shelve.open('stats/word_freq') as db:
   print("Below is the 50 most common words found in the scrapped urls:")
   printFrequencies(dict(db))
 
-try:
-  with open('stats/longest_page', 'rb') as f:
-    longest_page = pickle.load(f)
-    print(f'The longest page found in url is {longest_page[0]}, it has {longest_page[1]} tokens')
-except FileNotFoundError:
-   print("NO RECORD")
-   with open('stats/longest_page', 'wb') as f:
-        pickle.dump((None,0), f)
+
+with shelve.open('stats/word_freq') as d:
+  longest_page = d[0]
+  print(f'The longest page is {longest_page[0]}, which has {longest_page[1]} tokens')
+
+
 
 

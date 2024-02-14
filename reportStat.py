@@ -9,18 +9,20 @@ def printFrequencies(frequencies):
         if(counter == 50):
            break
 
-with shelve.open('scraped_urls') as d:
+with shelve.open('stats/scraped_urls') as d:
    print(f'Number of url crawled: {len(d.keys())}')
 
-with shelve.open('word_freq') as db:
+with shelve.open('stats/word_freq') as db:
   print("Below is the 50 most common words found in the scrapped urls:")
   printFrequencies(dict(db))
 
 try:
-  with open('longest_page', 'rb') as f:
+  with open('stats/longest_page', 'rb') as f:
     longest_page = pickle.load(f)
     print(f'The longest page found in url is {longest_page[0]}, it has {longest_page[1]} tokens')
 except FileNotFoundError:
    print("NO RECORD")
+   with open('stats/longest_page', 'wb') as f:
+        pickle.dump((None,0), f)
 
 

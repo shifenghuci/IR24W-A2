@@ -26,22 +26,22 @@ def collect_data(url,resp)->None:
     2. word frequencies
     '''
     #update dict of scraped_urls
-    with shelve.open('scraped_urls') as d:
+    with shelve.open('stats/scraped_urls') as d:
         d[url] = get_tokenSet(url)
 
     soup = BeautifulSoup(resp.raw_response.content,'html.parser')
     tokens = list(yieldToken(soup.get_text()))
     num_words = len(tokens)
-    with open('longest_page', 'rb') as f:
+    with open('stats/longest_page', 'rb') as f:
         longest_page = pickle.load(f)
     #update longest_page
     if num_words > longest_page[1]:
         longest_page = (url, num_words)
-    with open('longest_page','wb') as f:
+    with open('stats/longest_page','wb') as f:
         pickle.dump(longest_page,f)
 
 
-    with shelve.open('word_freq') as word_freq:
+    with shelve.open('stats/word_freq') as word_freq:
         for token in tokens:
             word_freq[token] = word_freq.get(token, 0) + 1
 
@@ -100,7 +100,7 @@ def exceedRepeatedThreshold(url)-> True|False:
             d[x] = d.get(x,0) + 1 #record frequency of token
 
     #check the record of all seemd tokenSets
-    with shelve.open('scraped_urls') as url_dict:
+    with shelve.open('stats/scraped_urls') as url_dict:
         tokenSets = set(url_dict.values())
         seemedToken = get_tokenSet(url) in tokenSets
         #print(tokenSets)
@@ -127,7 +127,7 @@ def is_valid(url):
         elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}:
             #print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
             return False
-        elif '.php' in url:
+        elif '.php' in url or '.html' in url:
             return False
         elif parsed.query:
             return False

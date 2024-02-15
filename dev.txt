@@ -11,11 +11,13 @@ According to the assignment description, the following heuristic is honored:
 5. Crawler should detect and avoid infinite traps
 5. Crawler should detect and avoid sets of similar pages with no information
 6. Detect redirects and if redirected, the crawler should index the redirected content
-7. Detect and avoid dead URLs that return a 200 status, but no data
+[BLOCKED] 7. Detect and avoid dead URLs that return a 200 status, but no data
 8. Detect and avoid crawling very large files that have low informational value
 9. You can restart crawl no more than three times
 10. Crawler should check and use robots and sitemap
 11. Crawler better be multithreaded
+12. Crawler should collect enough data to answer questions stated in the assignment description
+
 
 5.1 There should be simple automatic trap detection based on repeated
 URL pattern and webpage content similarity repetition over a certain amount of chained pages
@@ -47,15 +49,15 @@ Implementation idea
 
 4. By excluding all low-info pages, we are crawling high-information pages
 
-5. Infinite trap refer to calendar trap or dynamically generated trap
+5. Sets of similar pages with no information might be referring to infinite trap that is blank
 5.1 For calendar trap, analyze the url by looking for dates in the path, use re
 5.2 Enforced depth of path to eliminate calendar or dynamically generated trap
 
-6. if resp.status show redirection, crawler should instead crawl on the redirected url with its resp
-6.1 response = requests.head(url, allow_redirects=True)
+6. requests.get() automatically handle redirection, that is done in the download.py
 
 7. For dead url that return a 200 status, check for the content-Length before extracting
 7.1 if resp.header.content_length == 0, skip
+7.2 resp.header is not directly available, calling requests.get(url) is expensive in time
 
 8. Check for content_length, also check for the extension, don't crawl most document
 8.1 implementation given in scraper.py

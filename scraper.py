@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from typing import Generator
 import requests
 from utils.response import Response
-# why can't I git push?
+
 # TODO: Implement robots.txt check and usage of sitemap
 #       10. Try visiting https://www.example.com/robots.txt
 #       10.1 If fail to visit, proceed onto normal scrawling

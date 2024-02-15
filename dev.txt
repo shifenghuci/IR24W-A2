@@ -1,0 +1,67 @@
+Now we have the extract link in place, we will implement is_valid()
+
+is_valid() determine if we want to crawl the given url
+
+According to the assignment description, the following heuristic is honored:
+
+1. Crawl only within the domains {*.ics.uci.edu/*, *.cs.uci.edu/*, *.informatics.uci.edu/*, *.stat.uci.edu/*}
+2. Discarded
+3. We are looking for text on web pages so that we can search for it later on
+4. Crawl all pages with high textual information content
+5. Crawler should detect and avoid infinite traps
+5. Crawler should detect and avoid sets of similar pages with no information
+6. Detect redirects and if redirected, the crawler should index the redirected content
+7. Detect and avoid dead URLs that return a 200 status, but no data
+8. Detect and avoid crawling very large files that have low informational value
+9. You can restart crawl no more than three times
+10. Crawler should check and use robots and sitemap
+11. Crawler better be multithreaded
+
+5.1 There should be simple automatic trap detection based on repeated
+URL pattern and webpage content similarity repetition over a certain amount of chained pages
+11.1 Multiple requests from separate thread must have a delay of 500ms
+11.2 This requires reimplement the Frontier, so that the 500ms delay between two requests is enforced
+11.3 This requires reimplement the Worker, so it obey politeness
+11.4 Set the THREADCOUNT variable in config.ini, this number should not be too big that it crashes
+the server
+
+
+Implementation idea
+
+0. We first need to define "textual information", "high information value", and "low information value"
+0.1 Information here refers specifically to text, so that doesn't include other media
+0.2 Text should be non-dynamically-generated
+0.2 Text should not be boilerplate -such as text in navigation menus, sidebars
+0.3 Text should not be duplicated content, if we have seemed very similar (threshold tbd) text before, it is consider low info
+0.4 High or low info should depend on number of qualified text(static, non-boiler plate) and similarity
+0.5 To avoid duplication require implementation of checksum() and simHash(), as well as relevant data structure
+
+1. parsed.netloc contain domain and possible subdomain
+1.1 Use re to check match of domain, if no match, don't crawl
+1.2 Also extract subdomain, which will be helpful for answering subdomain question
+
+3. Invoke get_words() to get textual info on an url, exclude boilerplate text by defining boilerplate.txt
+3.1 Aware of duplicated content by comparing the simHash fingerprint, this requires storing a set of fingerprint
+3.2 Calculate the ratio of qualified text / all text (including boilerplate)
+3.2.1 If qualified text = 0 or the ratio is lower than 10%, it is considered low-info
+
+4. By excluding all low-info pages, we are crawling high-information pages
+
+5. Infinite trap refer to calendar trap or dynamically generated trap
+5.1 For calendar trap, analyze the url by looking for dates in the path, use re
+5.2 Enforced depth of path to eliminate calendar or dynamically generated trap
+
+6. if resp.status show redirection, crawler should instead crawl on the redirected url with its resp
+6.1 response = requests.head(url, allow_redirects=True)
+
+7. For dead url that return a 200 status, check for the content-Length before extracting
+7.1 if resp.header.content_length == 0, skip
+
+8. Check for content_length, also check for the extension, don't crawl most document
+8.1 implementation given in scraper.py
+
+10. Try visiting https://www.example.com/robots.txt
+10.1 If fail to visit, proceed onto normal scrawling
+10.2 If exists, parse and construct set of disallow urls, disallowed_urls,append(f'{url}{disallow_relative}'
+10.3 Look for sitemap, if exists, parse it and directly return href extracted from the sitemap
+10.3.1 This is to assume that the sitemap contain valid link that is not a trap

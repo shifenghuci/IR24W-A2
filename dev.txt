@@ -63,7 +63,8 @@ Implementation idea
 8.1 implementation given in scraper.py
 
 10. Try visiting https://www.example.com/robots.txt
-10.1 If fail to visit, proceed onto normal scrawling
-10.2 If exists, parse and construct set of disallow urls, disallowed_urls,append(f'{url}{disallow_relative}'
-10.3 Look for sitemap, if exists, parse it and directly return href extracted from the sitemap
-10.3.1 This is to assume that the sitemap contain valid link that is not a trap
+10.1 Program use allowed_urls and disallowed_urls to store information
+10.1.1 allowed_urls[<original_url>] return frozenset(<allowed_url>.....etc)
+10.1.2 disallowed_urls[<original_url>] return frozenset(<disallowed_url>.....etc)
+10.2 Program check if the current url is under the domain of a url recorded, then compare if the url starts
+with any of disallowed urls

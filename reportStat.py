@@ -18,8 +18,11 @@ with shelve.open('stats/word_freq') as db:
 
 try:
   with open('stats/longest_page', 'rb') as f:
-    longest_page = pickle.load(f)
-    print(f'The longest page found in url is {longest_page[0]}, it has {longest_page[1]} tokens')
+    #longest_page = pickle.load(f)
+    contents = f.read()
+    contents = contents.rstrip("\n").decode("utf-16")
+    contents = contents.split("\r\n")
+    print(f'The longest page found in url is {content}, it has {content} tokens')
 except FileNotFoundError:
    print("NO RECORD")
    with open('stats/longest_page', 'wb') as f:

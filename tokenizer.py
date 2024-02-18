@@ -5,7 +5,7 @@ import re
 def yieldToken(text:str):
     # return a generator of token to lower case from a generator of file
     pattern = re.compile(r'[a-zA-Z0-9]+', re.IGNORECASE)  # pattern being any sequence of alphanumeric character
-    return (token.lower() for token in pattern.findall(text))  # yield lowercase token
+    return (token.lower() for token in pattern.findall(text) if len(token) > 1)  # yield lowercase token
 
 # n being size of frequencies dictionary, O(n), traverse through dictionary item (list) and print each O(1) operation
 def printFrequencies(frequencies):

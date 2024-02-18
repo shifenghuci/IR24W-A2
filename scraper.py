@@ -7,7 +7,7 @@ import pickle
 
 def scraper(url, resp):
     if resp.status == 200: #only scraped success page
-        collect_data(url,resp)
+        #collect_data(url,resp)
         links = extract_next_links(url, resp)
     else:
         links = [] # return empty links for not successful visit page
@@ -16,41 +16,36 @@ def scraper(url, resp):
 
 def get_tokenSet(url:str):
   #return a set of all token in the url
-  return frozenset({x for x in url.split('/')})
-
-def collect_data(url,resp)->None:
-    # collect data on the url and store it in shelve
-    '''
-    Collect the following info from each url:
-    1. Number of word/token
-    2. word frequencies
-    '''
-    #update dict of scraped_urls
-    with shelve.open('stats/scraped_urls') as d:
-        d[url] = get_tokenSet(url)
-
-    soup = BeautifulSoup(resp.raw_response.content,'html.parser')
-    tokens = list(yieldToken(soup.get_text()))
-    num_words = len(tokens)
-    with open('stats/longest_page', 'rb') as f:
-        longest_page = pickle.load(f)
-    #update longest_page
-    if num_words > longest_page[1]:
-        longest_page = (url, num_words)
-    with open('stats/longest_page','wb') as f:
-        pickle.dump(longest_page,f)
-
-
-    with shelve.open('stats/word_freq') as word_freq:
-        for token in tokens:
-            word_freq[token] = word_freq.get(token, 0) + 1
-
-def get_hrefs(resp):
-    #return all hyperlink found from the url
-    soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
-    return [tag.get('href') for tag in soup.find_all('a')]
+  #print(url)
+  #print(url.split('/'))
+  #print(urlparse(url).scheme)
+  #print(urlparse(url).netloc)
+  #print(urlparse(url).path)
+  #print(urlparse(url).query)
+  parsedUrlSet = set()
+  #urlScheme = urlparse(url).scheme
+  #urlNetloc = urlparse(url).netloc
+  #urlTokens = urlparse(url).path.split("/")
+  #urlQuery = urlparse(url).query
+  #urlFragment = urlparse(url).fragment
+  #parsedUrlSet.add(urlScheme)
+  #parsedUrlSet.add(urlNetloc)
+  #parsedUrlSet.add(urlQuery)
+  #parsedUrlSet.add(urlFragment)
+  #for t in urlTokens:
+    #parsedUrlSet.add(t)
+  #return frozenset(parsedUrlSet)
+  for t in url.split('/'):
+    #print(t)
+    if t:
+        parsedUrlSet.add(t)
+    else:
+        continue
+  #return frozenset({x for x in url.split('/')} if x else continue)
+  return frozenset(parsedUrlSet)
 
 def extract_next_links(url, resp):
+    #print(url)
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     '''
     Expected cases & handle:
@@ -61,27 +56,57 @@ def extract_next_links(url, resp):
         6.Non website scheme: ignore, don't append
         7.url lacking scheme: apply scheme and append to links
     '''
-    links = []
-    hyperlinks = get_hrefs(resp)
-    #print(hyperlinks)
-    for link in hyperlinks:
+
+    # update dict of scraped urls
+    with shelve.open('stats/scraped_urls') as d:
+        d[url] = get_tokenSet(url)
+
+    absoluteLinks = []
+    hyperlinks = []
+    soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
+    for hrefs in soup.find_all('a'):
+        hyperlinks.append(hrefs.get('href'))
+
+    # updates longest page
+    tokens = list(yieldToken(soup.get_text()))
+    num_words = len(tokens)
+    with shelve.open('stats/longest_page') as longest_page:
+        #longest_page["long"] = [url,num_words]
+        #update longest_page
+        longest_page[url] = {url,num_words}
+        #if 'long' in longest_page:
+            #if num_words > longest_page["long"][1]:
+                #longest_page['url'] = [url,num_words]
+                #longest_page['num'] = num_words
+        #else:
+            #longest_page['long'] = [url,0]
+            #longest_page['url'] = url
+
+    # updates frequency of each word from url
+    with shelve.open('stats/word_freq') as word_freq:
+        for token in tokens:
+            word_freq[token] = word_freq.get(token, 0) + 1
+ 
+    # converts links to absolute links if needed and adds to absoluteLinks to be returned
+    for link in set(hyperlinks):
         if not link:
             continue #skip None
         if link.startswith('http') or link.startswith('https'):
-            links.append(link)
+            #is complete url
+            absoluteLinks.append(link)
         if link.startswith('//'):
             #missing scheme
-            links.append(f'{urlparse(url).scheme}:{link}') #Give it the same scheme as the original url
+            absoluteLinks.append(f'{urlparse(url).scheme}:{link}') #Give it the same scheme as the original url
         elif link.startswith('/'):
             #is relative
             if url[-1] == '/':
                 url = url[:-1] #normalize self-directing page, ie: http://www.ics.uci.edu/ -> http://www.ics.uci.edu
             absolute_url = f'{url}{link}'
-            links.append(absolute_url)
+            absoluteLinks.append(absolute_url)
         else:
             # The fragment, mailto, tel got ignored
             continue
-    return links
+    return absoluteLinks
 
 def exceedRepeatedThreshold(url)-> True|False:
     #return true indicating if the url's path contain repeated pattern that exceed a certain threshold
@@ -92,20 +117,43 @@ def exceedRepeatedThreshold(url)-> True|False:
     THRESHOLD = 2 We allowed once recurrent, but more than that smell fishy
     
     '''
+    #print(f"url from repeatedThreshold {url}")
     repeat_THRESHOLD = 1 #if the same token appear more than three time in the path, the url is consider a trap that has infinite pattern
     d = {}
     tokenSet = get_tokenSet(url)
-    for x in tokenSet:
+    #print(tokenSet)
+    for x in url.split('/'):
         if x != '':
-            d[x] = d.get(x,0) + 1 #record frequency of token
-
+            #if x[-1] == ":":
+                #x = x[:-1]
+            d[x] = d.get(x,0) + 1
+    #for t in d:
+        #print(f"here: {t} and {d[t]}")
     #check the record of all seemd tokenSets
     with shelve.open('stats/scraped_urls') as url_dict:
-        tokenSets = set(url_dict.values())
+        #for v in url_dict:
+            #print(f"k: {v} and values: {url_dict[v]}")
+        tokenSets = url_dict.values()
+        #print(f"here is tokenSets {tokenSets}")
+        #print(f"look at this: {get_tokenSet(url)}")
+        #for test in tokenSets:
+            #print(f"seen tokensets {test}")
         seemedToken = get_tokenSet(url) in tokenSets
-        #print(tokenSets)
+        #print(f"seemedToken: {seemedToken}")
         #print(f'{url} seemed? {seemedToken}')
         return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken
+
+def detectedTrap(url):
+    path_token = urlparse(url).path.split('/')
+    path_depth = len(path_token)
+    DEPTH_THRESHOLD = 6
+    calendar_words = {'events', 'schedule', 'news', 'page', 'appointments', 'date'}
+    if path_depth > DEPTH_THRESHOLD:
+        return True
+    elif any((token in calendar_words) for token in path_token):
+        return True
+    else:
+        return False
 
 def is_valid(url):
     #return True or False that determine whether to crawl
@@ -116,22 +164,30 @@ def is_valid(url):
     3. Document: use regular expression
     4. .php script: ignore them
     5. query: ignore them
-    
-    
     '''
     try:
+        print(f"checking this url: {url}")
         parsed = urlparse(url)
+        #print(parsed)
         if parsed.scheme not in set(["http", "https"]):
+            print("1")
             #print(f'{url} will not be crawl due to <<<<<invalid scheme error>>>>>')
             return False
         elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}:
-            #print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
+            print("2")
+            print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
             return False
-        elif '.php' in url or '.html' in url:
+        elif '.php' in url or '.html' in url or '.pdf' in url or '.txt' in url:
+            print("3")
             return False
         elif parsed.query:
+            print("4")
+            return False
+        elif detectedTrap(url):
+            print("5")
             return False
         elif exceedRepeatedThreshold(url):
+            print("6")
             #print(f'{url} will not be crawl due to <<<<<exceedRepeatedThreshold error>>>>>')
             return False
         return not re.match(

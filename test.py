@@ -126,14 +126,23 @@ t = "hello 1 2 3 a a a b b b"
 
 web = "https://www.stat.uci.edu/qu-named-2024-ims-medallion-lecturer"
 
+web2 = "https://www.cs.uci.edu"
 
-
+ics = "https://ics.uci.edu"
 response1 = requests.get(web)
+response2 = requests.get(ics)
+response3 = requests.get(web2)
 #print(response1)
 #content = response.text
 respd = {"url": "https://www.stat.uci.edu/qu-named-2024-ims-medallion-lecturer", "status": 200, "response": response1}
+respd2 = {"url": "https://ics.uci.edu", "status": 200, "response": response2}
+respd3 = {"url": "https://www.cs.uci.edu", "status": 200, "response": response3}
 ob = Response(respd)
 ob.raw_response = response1
+ob2 = Response(respd2)
+ob2.raw_response = response2
+ob3 = Response(respd3)
+ob3.raw_response = response3
 #print(ob)
 #print(extract_next_links(web,ob))
 #print(web)
@@ -145,7 +154,19 @@ ob.raw_response = response1
     #print(l)
     #print(scraper.is_valid(l))
 
+with open('stats/longest_page.txt', 'w') as t:
+            print("RESETTING LONGEST PAGE")
+            #pickle.dump((None,0),t)
+            t.write("None\n")
+            t.write("0")
+
+with open('stats/ics_domain.txt', 'w') as u:
+            u.write("")
+
+
 print(scraper.scraper("https://www.stat.uci.edu/qu-named-2024-ims-medallion-lecturer",ob))
+print(scraper.scraper("https://vision.ics.uci.edu",ob2))
+print(scraper.scraper("https://www.cs.uci.edu",ob3))
 
 #page = requests.get(u)
 #soup = BeautifulSoup(page.text)

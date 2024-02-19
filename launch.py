@@ -30,9 +30,13 @@ if __name__ == "__main__":
         with shelve.open('stats/word_freq') as word_freq:
             print("RESETTING WORD FREQUENCY")
             word_freq.clear()
-        with open('stats/longest_page', 'wb') as t:
+        with open('stats/longest_page.txt', 'w') as t:
             print("RESETTING LONGEST PAGE")
-            pickle.dump((None,0),t)
+            #pickle.dump((None,0),t)
+            t.write("None\n")
+            t.write("0")
+        with open('stats/ics_domain.txt', 'w') as u:
+            u.write("")
     else:
         print(f'Resume crawling process')
 

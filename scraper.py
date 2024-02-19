@@ -7,7 +7,9 @@ import pickle
 
 def scraper(url, resp):
     if resp.status == 200: #only scraped success page
-        #collect_data(url,resp)
+        with open('stats/ics_domain.txt', 'a') as u:
+            if 'ics.uci.edu' in url:
+                u.write(f"{url}\n")
         links = extract_next_links(url, resp)
     else:
         links = [] # return empty links for not successful visit page
@@ -15,26 +17,7 @@ def scraper(url, resp):
     return [link for link in links if is_valid(link)]
 
 def get_tokenSet(url:str):
-  #return a set of all token in the url
-  #print(url)
-  #print(url.split('/'))
-  #print(urlparse(url).scheme)
-  #print(urlparse(url).netloc)
-  #print(urlparse(url).path)
-  #print(urlparse(url).query)
   parsedUrlSet = set()
-  #urlScheme = urlparse(url).scheme
-  #urlNetloc = urlparse(url).netloc
-  #urlTokens = urlparse(url).path.split("/")
-  #urlQuery = urlparse(url).query
-  #urlFragment = urlparse(url).fragment
-  #parsedUrlSet.add(urlScheme)
-  #parsedUrlSet.add(urlNetloc)
-  #parsedUrlSet.add(urlQuery)
-  #parsedUrlSet.add(urlFragment)
-  #for t in urlTokens:
-    #parsedUrlSet.add(t)
-  #return frozenset(parsedUrlSet)
   for t in url.split('/'):
     #print(t)
     if t:
@@ -45,7 +28,7 @@ def get_tokenSet(url:str):
   return frozenset(parsedUrlSet)
 
 def extract_next_links(url, resp):
-    #print(url)
+    #print(f"scraping this url {url}")
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     '''
     Expected cases & handle:
@@ -70,10 +53,17 @@ def extract_next_links(url, resp):
     # updates longest page
     tokens = list(yieldToken(soup.get_text()))
     num_words = len(tokens)
-    with shelve.open('stats/longest_page') as longest_page:
-        #longest_page["long"] = [url,num_words]
-        #update longest_page
-        longest_page[url] = {url,num_words}
+    with open('stats/longest_page.txt', 'r') as longest_page:
+        lines = longest_page.readlines()
+        #print(f"here is lines: {lines}")
+        storedMaxLen = int(lines[1].strip())
+        storedStr = lines[0].strip()
+        #print(f"this is num_words: {num_words}")
+
+        if storedStr == "None" or num_words > storedMaxLen:
+            with open('stats/longest_page.txt', 'w') as t:
+                t.write(f"{url}\n")
+                t.write(str(num_words))
         #if 'long' in longest_page:
             #if num_words > longest_page["long"][1]:
                 #longest_page['url'] = [url,num_words]
@@ -166,30 +156,31 @@ def is_valid(url):
     5. query: ignore them
     '''
     try:
-        print(f"checking this url: {url}")
+        #print(f"checking this url: {url}")
         parsed = urlparse(url)
         #print(parsed)
         if parsed.scheme not in set(["http", "https"]):
-            print("1")
+            #print("1")
             #print(f'{url} will not be crawl due to <<<<<invalid scheme error>>>>>')
             return False
         elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}:
-            print("2")
-            print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
+            #print("2")
+            #print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
             return False
-        elif '.php' in url or '.html' in url or '.pdf' in url or '.txt' in url:
-            print("3")
-            return False
+        #elif '.php' in url or '.html' in url or '.pdf' in url or '.txt' in url:
+            #print("3")
+            #return False
         elif parsed.query:
-            print("4")
+            #print("4")
             return False
         elif detectedTrap(url):
-            print("5")
+            #print("5")
             return False
         elif exceedRepeatedThreshold(url):
-            print("6")
+            #print("6")
             #print(f'{url} will not be crawl due to <<<<<exceedRepeatedThreshold error>>>>>')
             return False
+        #print("7")
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"

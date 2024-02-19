@@ -5,6 +5,8 @@ from tokenizer import yieldToken
 import shelve
 import pickle
 
+
+
 def scraper(url, resp):
     if resp.status == 200: #only scraped success page
         with open('stats/ics_domain.txt', 'a') as u:
@@ -53,6 +55,8 @@ def extract_next_links(url, resp):
     # updates longest page
     tokens = list(yieldToken(soup.get_text()))
     num_words = len(tokens)
+    if (num_words < 200):
+        return []
     with open('stats/longest_page.txt', 'r') as longest_page:
         lines = longest_page.readlines()
         #print(f"here is lines: {lines}")

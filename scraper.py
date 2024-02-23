@@ -16,7 +16,7 @@ def scraper(url, resp):
     #return []
     return [link for link in links if is_valid(link)]
 
-def get_tokenSet(url:str):
+def get_tokenSet(url:str): # helper function to handle trap where repeapted path in different order.
   parsedUrlSet = set()
   for t in url.split('/'):
     #print(t)
@@ -41,13 +41,13 @@ def extract_next_links(url, resp):
     '''
 
     # update dict of scraped urls
-    with shelve.open('stats/scraped_urls') as d:
+    with shelve.open('stats/scraped_urls') as d: # record pattern of a url
         d[url] = get_tokenSet(url)
 
     absoluteLinks = []
     hyperlinks = []
     soup = BeautifulSoup(resp.raw_response.content, 'html.parser')
-    for hrefs in soup.find_all('a'):
+    for hrefs in soup.find_all('a'): # Find all anchor tag, which has hyperlink inside
         hyperlinks.append(hrefs.get('href'))
 
     # updates longest page
@@ -64,14 +64,7 @@ def extract_next_links(url, resp):
             with open('stats/longest_page.txt', 'w') as t:
                 t.write(f"{url}\n")
                 t.write(str(num_words))
-        #if 'long' in longest_page:
-            #if num_words > longest_page["long"][1]:
-                #longest_page['url'] = [url,num_words]
-                #longest_page['num'] = num_words
-        #else:
-            #longest_page['long'] = [url,0]
-            #longest_page['url'] = url
-
+                
     # updates frequency of each word from url
     with shelve.open('stats/word_freq') as word_freq:
         for token in tokens:
@@ -99,13 +92,22 @@ def extract_next_links(url, resp):
     return absoluteLinks
 
 def exceedRepeatedThreshold(url)-> True|False:
-    #return true indicating if the url's path contain repeated pattern that exceed a certain threshold
+    #return true indicating if the url's path contain repeated pattern that exceed a certain threshold or it is a rearrangement of seemed url
     '''
     Definition of threshold
     THRESHOLD = 1 We don't allow there to be recurring path
 
     THRESHOLD = 2 We allowed once recurrent, but more than that smell fishy
+
+    Example:
+
+    https://www.ics.uci.edu/community/aggreement/community     <------ suspect trap
+
+    https://www.ics.uci.edu/community/aggreement <--- in record
+
+    then
     
+    https://www.ics.uci.edu/aggreement/community   <------ rearrangement of the above, suspect trap
     '''
     #print(f"url from repeatedThreshold {url}")
     repeat_THRESHOLD = 1 #if the same token appear more than three time in the path, the url is consider a trap that has infinite pattern
@@ -128,10 +130,10 @@ def exceedRepeatedThreshold(url)-> True|False:
         #print(f"look at this: {get_tokenSet(url)}")
         #for test in tokenSets:
             #print(f"seen tokensets {test}")
-        seemedToken = get_tokenSet(url) in tokenSets
+        seemedToken = get_tokenSet(url) in tokenSets # if the same set of token has been seen, regardless of order
         #print(f"seemedToken: {seemedToken}")
         #print(f'{url} seemed? {seemedToken}')
-        return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken
+        return any(value > repeat_THRESHOLD for value in d.values()) or seemedToken # if repeated token exceed threshold or is a rearrangement of seemed url
 
 def detectedTrap(url):
     path_token = urlparse(url).path.split('/')
@@ -152,8 +154,7 @@ def is_valid(url):
     1. Illegal domain: if netloc not in one of the four allowed domain
     2. Repeated Pattern: fetch path and determine if there are repeated path exceeding certain threshold
     3. Document: use regular expression
-    4. .php script: ignore them
-    5. query: ignore them
+    4. query: ignore them
     '''
     try:
         #print(f"checking this url: {url}")
@@ -163,7 +164,7 @@ def is_valid(url):
             #print("1")
             #print(f'{url} will not be crawl due to <<<<<invalid scheme error>>>>>')
             return False
-        elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}:
+        elif parsed.netloc not in {"www.ics.uci.edu", "www.cs.uci.edu", "www.informatics.uci.edu", "www.stat.uci.edu"}: # <---- Design mistake, ignore possible subdomain
             #print("2")
             #print(f'{url} will not be crawl due to <<<<<illegal domain error>>>>>')
             return False
@@ -173,10 +174,10 @@ def is_valid(url):
         elif parsed.query:
             #print("4")
             return False
-        elif detectedTrap(url):
+        elif detectedTrap(url): # depth detection and calendar key word
             #print("5")
             return False
-        elif exceedRepeatedThreshold(url):
+        elif exceedRepeatedThreshold(url): # detect reannragement of seemed token & repeating path token
             #print("6")
             #print(f'{url} will not be crawl due to <<<<<exceedRepeatedThreshold error>>>>>')
             return False
